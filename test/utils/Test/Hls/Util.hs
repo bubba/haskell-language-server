@@ -6,9 +6,8 @@ module Test.Hls.Util
     , flushStackEnvironment
     , getHspecFormattedConfig
     , ghcVersion, GhcVersion(..)
-    , hieCommand
-    , hieCommandExamplePlugin
-    , hieCommandVomit
+    , hlsCommand
+    , hlsCommandExamplePlugin
     , logConfig
     , logFilePath
     , noLogConfig
@@ -31,6 +30,7 @@ import           System.Environment
 import           System.FilePath
 import qualified System.Log.Logger as L
 import           System.IO.Temp
+import           System.IO.Unsafe
 import           Test.Hspec.Runner
 import           Test.Hspec.Core.Formatters
 import           Text.Blaze.Renderer.String (renderMarkup)
@@ -117,17 +117,14 @@ logFilePath = "hie-" ++ show ghcVersion ++ ".log"
 -- Both @stack test@ and @cabal new-test@ setup the environment so @hie@ is
 -- on PATH. Cabal seems to respond to @build-tool-depends@ specifically while
 -- stack just puts all project executables on PATH.
-hieCommand :: String
--- hieCommand = "hie --lsp --bios-verbose -d -l test-logs/" ++ logFilePath
--- hieCommand = "haskell-language-server --lsp"
--- hieCommand = "haskell-language-server --lsp --test --shake-profiling=test-logs/" ++ logFilePath
-hieCommand = "haskell-language-server --lsp -d -l test-logs/" ++ logFilePath
+hlsCommand :: String
+hlsCommand = unsafePerformIO $ do
+  exeOverride <- lookupEnv "HLS_TEST_EXE"
+  let testExe = fromMaybe "haskell-language-server" exeOverride
+  pure $ testExe ++ " --lsp -d -l test-logs/" ++ logFilePath
 
-hieCommandVomit :: String
-hieCommandVomit = hieCommand ++ " --vomit"
-
-hieCommandExamplePlugin :: String
-hieCommandExamplePlugin = hieCommand ++ " --example"
+hlsCommandExamplePlugin :: String
+hlsCommandExamplePlugin = hlsCommand ++ " --example"
 
 -- ---------------------------------------------------------------------
 
