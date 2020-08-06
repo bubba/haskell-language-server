@@ -1,4 +1,4 @@
-name: Builds
+name: Binary distributions
 
 defaults:
   run:
@@ -29,7 +29,7 @@ jobs:
     - uses: actions/checkout@v2
       with:
         submodules: true
-    - uses: bubba/setup-haskell@d8110230d
+    - uses: actions/setup-haskell@2215b2c
       with:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: '3.2'
@@ -133,3 +133,57 @@ jobs:
         name: haskell-language-server-wrapper-${{ runner.OS }}${{env.EXE_EXT}}.${{ steps.compress_wrapper_binary.outputs.extension }}
         path: ${{ steps.compress_wrapper_binary.outputs.path }}
 
+  test: 
+    runs-on: ${{ matrix.os }}
+    needs: build
+
+    strategy:
+      fail-fast: false
+      matrix:
+        ghc: ['8.10.1']
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+    
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+    - uses: actions/setup-haskell@2215b2c
+      with:
+        ghc-version: ${{ matrix.ghc }}
+        cabal-version: '3.2'
+        
+    - name: Work out platform specific env vars
+      id: platform_stuff
+      env:
+        GHC_VER: ${{ matrix.ghc }}
+      run: |
+        if [[ "$OSTYPE" == "msys" ]]; then
+          echo ::set-output name=exe_ext::.exe
+          echo ::set-output name=compression_ext::zip
+        else
+          echo ::set-output name=exe_ext::
+          echo ::set-output name=compression_ext::gz
+        fi
+        
+    - uses: actions/download-artifact@v2
+      with:
+        name: haskell-language-server-${{ runner.OS }}-${{ matrix.ghc }}${{ steps.platform_stuff.outputs.exe_ext }}.${{ steps.platform_stuff.outputs.compression_ext }}
+    
+    - run: ls -R
+
+    - name: Extract binary
+      run: |
+        if [[ "$OSTYPE" == "msys" ]]; then
+          7z x haskell-language-server-${{ matrix.ghc }}.${{ steps.platform_stuff.outputs.compression_ext }} 
+          mv haskell-language-server-${{ matrix.ghc }}.exe hls
+        else
+          gunzip -c haskell-language-server-${{ matrix.ghc }}.${{ steps.platform_stuff.outputs.compression_ext }} > hls
+        fi
+        chmod u+x hls
+    
+    - run: ls -R
+
+    - name: Test binary
+      env: 
+        HLS_TEST_EXE: hls
+      run: cabal run func-test -- -j1
