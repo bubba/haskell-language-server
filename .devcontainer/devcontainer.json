@@ -1,0 +1,6 @@
+{
+  "name": "Haskell Language Server",
+  "image": "haskell:8.10.1",
+  "extensions": ["haskell.haskell"],
+  "postCreateCommand": "git submodule update --init && cabal update"
+}
