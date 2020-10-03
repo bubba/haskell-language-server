@@ -140,29 +140,31 @@ jobs:
   tar:
     needs: build
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [Linux, macOS]
     steps:
       - uses: actions/download-artifact@v2
 
       - run: |
-          for OS in Linux macOS
+          # move the binaries for the specific platform into bin/
+          mkdir bin
+          mv haskell-language-server-${{ runner.os }}-*.gz/haskell-language-server-${{ runner.os }}-*.gz bin
+          # decompress them
+          gzip -d bin/*.gz
+          # renames haskell-language-server-macOS-8.8.1 => haskell-language-server-8.8.1
+          for f in bin/*
           do
-            tar -czf haskell-language-server-$OS-${{ github.event.release.tag_name }}.tar.gz haskell-language-server-$OS-*.gz
+            mv -- "$f" "$(echo "$f" | sed -e 's/haskell-language-server-.\+-/haskell-language-server-/' -)"
           done
+          tar -czf bin/haskell-language-server.tar.gz bin/*
 
       - uses: actions/upload-release-asset@v1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: haskell-language-server-macOS-${{ github.event.release.tag_name }}.tar.gz
-          asset_name: haskell-language-server-macOS-${{ github.event.release.tag_name }}.tar.gz
+          asset_path: bin/haskell-language-server.tar.gz
+          asset_name: haskell-language-server-${{ runner.os }}-${{ github.event.release.tag_name }}.tar.gz
           asset_content_type: application/gzip
 
-      - uses: actions/upload-release-asset@v1.0.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: haskell-language-server-Linux-${{ github.event.release.tag_name }}.tar.gz
-          asset_name: haskell-language-server-Linux-${{ github.event.release.tag_name }}.tar.gz
-          asset_content_type: application/gzip
